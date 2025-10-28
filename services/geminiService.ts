@@ -43,9 +43,6 @@ async function decodeAudioData(
 
 // --- Gemini Service ---
 
-// Fix: The `LiveSession` type is no longer exported from "@google/genai".
-// A local interface is defined based on its usage within this service to
-// maintain type safety for the live session object.
 interface LiveSession {
   sendRealtimeInput(input: { media: Blob }): void;
   sendToolResponse(response: {
@@ -106,13 +103,16 @@ const clearDetectedObjectsFunctionDeclaration: FunctionDeclaration = {
     }
 };
 
-export const startLiveSession = (callbacks: {
+export const startLiveSession = (apiKey: string, callbacks: {
     onMessage: (message: LiveServerMessage) => void;
     onError: (error: ErrorEvent) => void;
     onClose: (event: CloseEvent) => void;
     onOpen: () => void;
 }): Promise<LiveSession> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!apiKey) {
+      throw new Error("API key is missing.");
+    }
+    const ai = new GoogleGenAI({ apiKey });
     outputAudioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
     nextStartTime = 0;
     
