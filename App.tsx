@@ -214,7 +214,7 @@ export default function App() {
                     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                     const base64Data = imageDataUrl.split(',')[1];
                     streamImageFrame(base64Data);
-                }, 1000);
+                }, 500);
             },
             onMessage: (message: LiveServerMessage) => {
                 if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
@@ -236,15 +236,26 @@ export default function App() {
                         }
                     }
                 }
-                if (message.serverContent?.turnComplete && transcriptionRef.current.trim().length > 0) {
+                if (message.serverContent?.turnComplete) {
+                    // A full interaction cycle (user speaks, model responds) is complete.
+                    // Clear the user's last utterance from the display to indicate readiness for the next command.
                     transcriptionRef.current = '';
+                    setTranscription('');
                 }
             },
             onError: (e: ErrorEvent) => {
                 console.error("Session error:", e);
-                setError("خطایی در جلسه زنده رخ داد. لطفاً دوباره امتحان کنید.");
+                let errorMessage = "خطایی در جلسه زنده رخ داد. این ممکن است به دلیل مشکل در شبکه یا کلید API نامعتبر باشد. لطفاً دوباره امتحان کنید.";
+                let nextStatus: AppStatus = 'ERROR';
+
+                if (e.message && (e.message.includes("API key not valid") || e.message.includes("Requested entity was not found"))) {
+                    errorMessage = "کلید API انتخاب شده نامعتبر یا منقضی شده است. لطفاً یک کلید جدید انتخاب کنید.";
+                    nextStatus = 'SELECT_KEY';
+                }
+                
+                setError(errorMessage);
                 handleSessionStop();
-                setStatus('ERROR');
+                setStatus(nextStatus);
             },
             onClose: (e: CloseEvent) => {
                 console.log("Session closed.", e);
@@ -257,17 +268,19 @@ export default function App() {
     } catch (e: any) {
         console.error("Failed to start session:", e);
         let errorMessage = `شروع جلسه ناموفق بود: ${e.message}`;
-        if (e.message.includes("API key not valid")) {
-            errorMessage = "کلید API نامعتبر است. لطفاً یک کلید معتبر را انتخاب کنید."
-            setStatus('SELECT_KEY');
+        let nextStatus: AppStatus = 'ERROR';
+
+        if (e.message.includes("API key not valid") || e.message.includes("Requested entity was not found")) {
+            errorMessage = "کلید API نامعتبر است. لطفاً یک کلید معتبر را انتخاب کنید.";
+            nextStatus = 'SELECT_KEY';
         } else if (e.message.includes("quota")) {
             errorMessage = "شما از سهمیه خود فراتر رفته‌اید. لطفاً بعداً دوباره امتحان کنید.";
-            setStatus('QUOTA_ERROR');
-        } else {
-            setStatus('ERROR');
+            nextStatus = 'QUOTA_ERROR';
         }
+        
         setError(errorMessage);
         handleSessionStop();
+        setStatus(nextStatus);
     }
   }, [stream, handleSessionStop]);
 
@@ -279,8 +292,9 @@ export default function App() {
             return <div className="text-center"><Spinner /> <p className="mt-4">در حال بارگذاری...</p></div>;
         case 'SELECT_KEY':
             return (
-                <div className="text-center">
-                    <p className="mb-4">لطفاً برای استفاده از برنامه، یک کلید API را انتخاب کنید.</p>
+                <div className="text-center p-4 bg-yellow-900/50 rounded-lg max-w-md">
+                    <p className="font-bold text-lg mb-2">نیاز به کلید API</p>
+                    <p className="mb-4">{error || 'لطفاً برای استفاده از برنامه، یک کلید API را انتخاب کنید.'}</p>
                     <button onClick={handleSelectKey} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                         انتخاب کلید API
                     </button>
@@ -321,8 +335,8 @@ export default function App() {
                             مشاهده اطلاعات صورتحساب
                          </a>
                     ) : (
-                        <button onClick={() => window.location.reload()} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                            بارگذاری مجدد
+                         <button onClick={initialize} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                            دوباره امتحان کنید
                         </button>
                     )}
                 </div>
@@ -331,6 +345,10 @@ export default function App() {
   };
 
   const isBlockingOverlayVisible = status !== 'READY' && status !== 'LISTENING';
+  
+  // A special case for SELECT_KEY to show the error over the camera feed
+  const isSelectKeyOverlay = status === 'SELECT_KEY';
+
 
   return (
     <main className="w-screen h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 font-sans">
