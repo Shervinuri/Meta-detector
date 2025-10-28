@@ -97,6 +97,15 @@ const displayDetectedObjectsFunctionDeclaration: FunctionDeclaration = {
   },
 };
 
+const clearDetectedObjectsFunctionDeclaration: FunctionDeclaration = {
+    name: 'clearDetectedObjects',
+    description: 'تمام کادرهای مرزی را از روی صفحه پاک می کند. زمانی که کاربر درخواست می کند کادرها حذف شوند یا زمانی که شیء دیگر در دید نیست، از این تابع استفاده کنید.',
+    parameters: {
+        type: Type.OBJECT,
+        properties: {}
+    }
+};
+
 export const startLiveSession = (callbacks: {
     onMessage: (message: LiveServerMessage) => void;
     onError: (error: ErrorEvent) => void;
@@ -118,8 +127,11 @@ export const startLiveSession = (callbacks: {
         config: {
             responseModalities: [Modality.AUDIO],
             inputAudioTranscription: {},
-            systemInstruction: "شما یک دستیار بصری هستید. شما یک فید دوربین زنده را می‌بینید و صدای کاربر را می‌شنوید. وظیفه اصلی شما پیدا کردن اشیائی است که کاربر درخواست می‌کند. وقتی شیئی را پیدا کردید، **باید** از ابزار `displayDetectedObjects` برای کشیدن کادر دور آن استفاده کنید. این روش اصلی پاسخگویی شماست. همچنین به سوالات کلی درباره آنچه در فید دوربین می‌بینید پاسخ دهید. پاسخ‌های صوتی خود را بسیار کوتاه نگه دارید.",
-            tools: [{ functionDeclarations: [displayDetectedObjectsFunctionDeclaration] }]
+            systemInstruction: "شما یک دستیار متخصص و همه‌کاره هستید. شما فید دوربین زنده را می‌بینید و به دستورات صوتی کاربر گوش می‌دهید. وظیفه اصلی شما شناسایی دقیق اشیاء، برندها، مدل‌ها و قطعات مختلف و راهنمایی در مورد تعمیرات است. برای مدیریت کادرهای روی صفحه، از ابزارهای زیر استفاده کنید:\n- `displayDetectedObjects`: هر زمان که کاربر از شما خواست محلی را نشان دهید (مثلاً 'مخزن ضدیخ کجاست؟')، از این ابزار برای کشیدن کادر دور آن استفاده کنید.\n- `clearDetectedObjects`: هر زمان که کاربر از شما خواست کادرها را بردارید (مثلاً 'کادر رو پاک کن' یا 'حالا برش دار') یا زمانی که شیء دیگر در دیدرس نیست، از این ابزار برای پاک کردن تمام کادرها از روی صفحه استفاده کنید.\n\nعلاوه بر این، شما به جستجوی وب دسترسی دارید. اگر کاربر سوالی پرسید که نیاز به اطلاعات به‌روز، اخبار، یا دانش عمومی دارد (مثلاً 'جدیدترین مدل این ماشین کی عرضه شده؟' یا 'قیمت این قطعه چقدر است؟')، از جستجوی وب برای یافتن پاسخ دقیق و جدید استفاده کنید. پاسخ‌های صوتی خود را واضح، مفید و جامع ارائه دهید.",
+            tools: [
+                { functionDeclarations: [displayDetectedObjectsFunctionDeclaration, clearDetectedObjectsFunctionDeclaration] },
+                { googleSearch: {} }
+            ]
         },
     });
     return sessionPromise;

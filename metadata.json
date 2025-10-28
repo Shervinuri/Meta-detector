@@ -1,6 +1,6 @@
 {
-  "name": "Live Object Detector pro",
-  "description": "An interactive, real-time object detection application using the device's camera and a conversational AI interface. Users can speak to the AI to identify and locate objects in the live camera feed.",
+  "name": "Live Expert Assistant pro",
+  "description": "An advanced, real-time expert assistant that uses the device's camera and a conversational AI interface. Users can speak to the AI to identify objects, brands, and parts, and receive technical guidance and repair instructions, powered by live web search.",
   "requestFramePermissions": [
     "camera",
     "microphone"

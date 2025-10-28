@@ -14,14 +14,6 @@ import { LiveServerMessage } from '@google/genai';
 
 // --- UI Components ---
 
-const MicrophoneIcon: React.FC<{isListening: boolean}> = ({ isListening }) => (
-    <svg className={`w-8 h-8 transition-colors ${isListening ? 'text-red-500' : 'text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-        <line x1="12" y1="19" x2="12" y2="22"></line>
-    </svg>
-);
-
 const Spinner: React.FC = () => (
     <svg className="animate-spin h-10 w-10 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -38,6 +30,8 @@ export default function App() {
   const [selectedObject, setSelectedObject] = useState<DetectedObject | null>(null);
   const [transcription, setTranscription] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [groundingChunks, setGroundingChunks] = useState<any[]>([]);
+
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -76,6 +70,7 @@ export default function App() {
     setDetectedObjects([]);
     setSelectedObject(null);
     setTranscription('');
+    setGroundingChunks([]);
   }, []);
 
   const requestPermissionsAndSetup = useCallback(async () => {
@@ -173,6 +168,7 @@ export default function App() {
     setSelectedObject(null);
     setTranscription('');
     transcriptionRef.current = '';
+    setGroundingChunks([]);
 
     try {
         await startLiveSession({
@@ -214,7 +210,7 @@ export default function App() {
                     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                     const base64Data = imageDataUrl.split(',')[1];
                     streamImageFrame(base64Data);
-                }, 500);
+                }, 250);
             },
             onMessage: (message: LiveServerMessage) => {
                 if (message.serverContent?.modelTurn?.parts[0]?.inlineData?.data) {
@@ -227,12 +223,19 @@ export default function App() {
                     transcriptionRef.current += message.serverContent.inputTranscription.text;
                     setTranscription(transcriptionRef.current);
                 }
+                if (message.serverContent?.groundingMetadata?.groundingChunks) {
+                    setGroundingChunks(message.serverContent.groundingMetadata.groundingChunks);
+                }
                 if (message.toolCall) {
                     for (const fc of message.toolCall.functionCalls) {
                         if (fc.name === 'displayDetectedObjects') {
                             const detections = fc.args.detections as DetectedObject[];
                             setDetectedObjects(detections);
                             sendToolResponse(fc.id, fc.name, "اشیاء با موفقیت نمایش داده شدند.");
+                        } else if (fc.name === 'clearDetectedObjects') {
+                            setDetectedObjects([]);
+                            setSelectedObject(null);
+                            sendToolResponse(fc.id, fc.name, "کادرها با موفقیت پاک شدند.");
                         }
                     }
                 }
@@ -241,6 +244,7 @@ export default function App() {
                     // Clear the user's last utterance from the display to indicate readiness for the next command.
                     transcriptionRef.current = '';
                     setTranscription('');
+                    setGroundingChunks([]);
                 }
             },
             onError: (e: ErrorEvent) => {
@@ -284,6 +288,28 @@ export default function App() {
     }
   }, [stream, handleSessionStop]);
 
+  const ProfessionalMicrophoneButton: React.FC<{ isListening: boolean; onClick: () => void; }> = ({ isListening, onClick }) => {
+    const glowColor = isListening ? 'rgba(255, 82, 82, 0.7)' : 'rgba(0, 255, 255, 0.6)';
+    const iconColor = isListening ? 'text-red-500' : 'text-cyan-300';
+
+    return (
+      <div className="relative">
+        <button
+          onClick={onClick}
+          className="relative z-0 w-20 h-20 bg-black/80 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110"
+          style={{ boxShadow: `0 0 10px 2px ${glowColor}` }}
+          aria-label={isListening ? "Stop listening" : "Start listening"}
+        >
+          <svg className={`relative z-10 w-9 h-9 transition-colors ${iconColor}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="22"></line>
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
 
   const renderStatusContent = () => {
     switch(status) {
@@ -302,26 +328,19 @@ export default function App() {
             );
         case 'READY':
             return (
-                <div className="flex flex-col items-center justify-center h-full">
-                    <p className="mb-6 text-xl text-white drop-shadow-lg">برای شروع تشخیص، روی میکروفون ضربه بزنید</p>
-                    <button onClick={handleSessionStart} className="bg-blue-600 hover:bg-blue-700 rounded-full p-6 transition-transform transform hover:scale-110">
-                        <MicrophoneIcon isListening={false} />
-                    </button>
+                <div className="flex flex-col items-center justify-end h-full pb-20">
+                    <p className="mb-6 text-xl text-white drop-shadow-lg bg-black/30 px-4 py-2 rounded-lg">برای شروع تشخیص، روی میکروفون ضربه بزنید</p>
+                    <ProfessionalMicrophoneButton isListening={false} onClick={handleSessionStart} />
                 </div>
             );
         case 'LISTENING':
             return (
-                <div className="flex flex-col items-center justify-center h-full text-center w-full p-4">
-                    <div className="flex-1 flex flex-col justify-center items-center">
-                        {/* This space is intentionally left to not block the center view */}
-                    </div>
-                    <div className="w-full max-w-2xl">
-                        {transcription && <div className="mb-4 bg-black/50 p-3 rounded-lg backdrop-blur-sm"><p className="text-gray-200 text-lg">{transcription}</p></div>}
-                        <button onClick={handleStopButtonClick} className="bg-red-600 hover:bg-red-700 rounded-full p-6">
-                           <MicrophoneIcon isListening={true} />
-                        </button>
-                        <p className="text-lg animate-pulse mt-2 text-white drop-shadow-md">در حال گوش دادن... برای توقف ضربه بزنید</p>
-                    </div>
+                 <div className="flex flex-col items-center justify-end h-full text-center w-full p-4 pb-12">
+                     {transcription && (
+                        <p className="mb-4 p-3 max-w-2xl w-full text-white text-lg font-semibold drop-shadow-lg">{transcription}</p>
+                     )}
+                    <ProfessionalMicrophoneButton isListening={true} onClick={handleStopButtonClick} />
+                     <p className="text-lg animate-pulse mt-4 text-white drop-shadow-md">در حال گوش دادن... برای توقف ضربه بزنید</p>
                 </div>
             );
         case 'ERROR':
@@ -345,27 +364,26 @@ export default function App() {
   };
 
   const isBlockingOverlayVisible = status !== 'READY' && status !== 'LISTENING';
-  
-  // A special case for SELECT_KEY to show the error over the camera feed
-  const isSelectKeyOverlay = status === 'SELECT_KEY';
-
 
   return (
-    <main className="w-screen h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 font-sans">
-      <div className="w-full h-full max-w-4xl max-h-[800px] flex flex-col border border-gray-700 rounded-2xl shadow-2xl overflow-hidden bg-black">
-        <header className="p-4 border-b border-gray-700 bg-gray-800/50 z-10">
-          <h1 className="text-2xl font-bold text-center">تشخیص زنده اشیاء SHΞN™</h1>
+    <main className="w-screen h-screen bg-black text-white font-sans overflow-hidden">
+      <div className="relative w-full h-full">
+        {/* Camera Feed now takes up the whole background */}
+        <CameraFeed
+          ref={videoRef}
+          stream={stream}
+          detectedObjects={detectedObjects}
+          selectedObject={selectedObject}
+          onObjectSelect={setSelectedObject}
+        />
+        
+        {/* Header as overlay */}
+        <header className="absolute top-0 left-0 right-0 p-4 pt-6 z-10 bg-gradient-to-b from-black/70 to-transparent">
+          <h1 className="text-3xl font-bold text-center text-white drop-shadow-md">SHΞN™ Meta Finder</h1>
         </header>
 
-        <div className="flex-1 relative">
-          <CameraFeed
-            ref={videoRef}
-            stream={stream}
-            detectedObjects={detectedObjects}
-            selectedObject={selectedObject}
-            onObjectSelect={setSelectedObject}
-          />
-
+        {/* Content Overlay */}
+        <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             {/* Full-screen, blocking overlay for initial/error states */}
             {isBlockingOverlayVisible && (
@@ -383,7 +401,34 @@ export default function App() {
           </div>
         </div>
 
-        <footer className="p-3 text-center border-t border-gray-700 bg-gray-800/50">
+        {/* Grounding Sources */}
+        <div className="absolute bottom-16 left-0 right-0 p-4 z-10 flex justify-center pointer-events-none">
+          {groundingChunks.length > 0 && (
+            <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 max-w-md w-full pointer-events-auto">
+              <h4 className="text-sm font-semibold text-gray-300 mb-2 text-center">منابع اطلاعاتی</h4>
+              <ul className="flex flex-col items-center space-y-1">
+                {groundingChunks.map((chunk, index) => (
+                  (chunk.web && chunk.web.uri) && (
+                    <li key={index} className="truncate w-full text-center">
+                      <a 
+                        href={chunk.web.uri} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-xs text-cyan-400 hover:text-cyan-200 hover:underline"
+                        title={chunk.web.title || chunk.web.uri}
+                      >
+                        {chunk.web.title || new URL(chunk.web.uri).hostname.replace('www.', '')}
+                      </a>
+                    </li>
+                  )
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Footer as overlay */}
+        <footer className="absolute bottom-0 left-0 right-0 p-3 pb-5 text-center z-10 bg-gradient-to-t from-black/70 to-transparent">
           <a href="https://T.me/shervini" target="_blank" rel="noopener noreferrer" className="shen-link text-sm">
             Exclusive SHΞN™ made
           </a>

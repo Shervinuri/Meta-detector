@@ -60,6 +60,29 @@ const CameraFeed = forwardRef<HTMLVideoElement, CameraFeedProps>(({ stream, dete
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Helper to draw rounded rectangles for labels
+    const drawRoundedRect = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        radius: number
+    ) => {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+        ctx.fill();
+    };
+
+
     const draw = () => {
       canvas.width = video.clientWidth;
       canvas.height = video.clientHeight;
@@ -75,28 +98,63 @@ const CameraFeed = forwardRef<HTMLVideoElement, CameraFeedProps>(({ stream, dete
         
         const isSelected = selectedObject && selectedObject.name === obj.name && JSON.stringify(selectedObject.box) === JSON.stringify(obj.box);
 
-        // Draw bounding box
-        ctx.strokeStyle = isSelected ? '#FFFF00' : '#00FFFF'; // Yellow if selected, Cyan otherwise
-        ctx.lineWidth = isSelected ? 6 : 4;
-        ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+        const color = isSelected ? '#FFFF00' : '#00FFFF';
+        const lineWidth = isSelected ? 4 : 2;
+        
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        
+        // --- Draw High-Tech Corner Brackets ---
+        const cornerSize = Math.min(rectWidth, rectHeight) * 0.15;
+        
+        ctx.beginPath();
+        // Top-left corner
+        ctx.moveTo(rectX, rectY + cornerSize);
+        ctx.lineTo(rectX, rectY);
+        ctx.lineTo(rectX + cornerSize, rectY);
+        // Top-right corner
+        ctx.moveTo(rectX + rectWidth - cornerSize, rectY);
+        ctx.lineTo(rectX + rectWidth, rectY);
+        ctx.lineTo(rectX + rectWidth, rectY + cornerSize);
+        // Bottom-right corner
+        ctx.moveTo(rectX + rectWidth, rectY + rectHeight - cornerSize);
+        ctx.lineTo(rectX + rectWidth, rectY + rectHeight);
+        ctx.lineTo(rectX + rectWidth - cornerSize, rectY + rectHeight);
+        // Bottom-left corner
+        ctx.moveTo(rectX + cornerSize, rectY + rectHeight);
+        ctx.lineTo(rectX, rectY + rectHeight);
+        ctx.lineTo(rectX, rectY + rectHeight - cornerSize);
+        ctx.stroke();
 
         if (isSelected) {
-            ctx.fillStyle = 'rgba(255, 255, 0, 0.2)'; // Add a semi-transparent yellow fill
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.1)';
             ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
         }
 
-        // Draw label
-        ctx.fillStyle = isSelected ? '#FFFF00' : '#00FFFF';
-        ctx.font = '20px sans-serif';
-        ctx.textBaseline = 'top';
+        ctx.shadowBlur = 0; // Reset shadow for text
+
+        // --- Draw Label Above the Box ---
         const label = obj.name;
+        const fontSize = 18;
+        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+        ctx.textBaseline = 'bottom';
         const textMetrics = ctx.measureText(label);
         const textWidth = textMetrics.width;
-        const textHeight = 20; 
+        const textHeight = fontSize;
+        const padding = 8;
+        
+        const labelX = rectX;
+        const labelY = rectY - textHeight - padding;
+        const labelWidth = textWidth + padding * 2;
+        const labelHeight = textHeight + padding;
 
-        ctx.fillRect(rectX, rectY, textWidth + 8, textHeight + 8);
-        ctx.fillStyle = '#000000';
-        ctx.fillText(label, rectX + 4, rectY + 4);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        drawRoundedRect(labelX, labelY, labelWidth, labelHeight, 8);
+        
+        ctx.fillStyle = color;
+        ctx.fillText(label, labelX + padding, labelY + textHeight + (padding/2));
       });
     };
     
