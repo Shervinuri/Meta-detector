@@ -1,4 +1,6 @@
 # <p align="center">SHΞN™ Meta Finder 👁️‍🗨️</p>
+![](https://i.ibb.co/5hWVdM5b/x.jpg)
+
 <p align="center">
   <a href="https://googleify.netlify.app/" target="_blank"><img src="https://img.shields.io/badge/Status-Live%20Demo-brightgreen?style=for-the-badge" alt="Live Demo" /></a>
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
